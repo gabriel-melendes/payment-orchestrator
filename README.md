@@ -126,7 +126,7 @@ git diff --cached
 git commit -m "chore: bootstrap Payment Orchestrator"
 ```
 
-Revise o diff antes do commit e confirme que `.env` não está incluído. Em equipe, a branch seria enviada para revisão por pull request, com `mvn clean verify` como verificação automatizada em CI. Pipeline CI/CD e publicação ficam para uma etapa solicitada separadamente. Os passos acima descrevem a inicialização original; em um clone existente, use a branch da sua entrega e revise git status antes de criar o commit.
+Revise o diff antes do commit e confirme que `.env` não está incluído. Em equipe, a branch seria enviada para revisão por pull request, com `mvn clean verify` como verificação automatizada em CI. A configuração de CI está em .github/workflows/ci.yml; ativação no GitHub e revisão por PR estão descritas em [docs/ci.md](docs/ci.md). Deploy fica para uma etapa futura. Os passos acima descrevem a inicialização original; em um clone existente, use a branch da sua entrega e revise git status antes de criar o commit.
 
 ## Validação
 
@@ -134,3 +134,7 @@ O projeto agora possui testes automatizados de integração com PostgreSQL 17 re
 
 
 A consulta GET por ID está documentada em [docs/payment-intent-query.md](docs/payment-intent-query.md), com decisões, arquivos e exemplos 200/404/400.
+
+## Integração contínua
+
+O workflow Java CI executa o build Java 21 e os 50 testes em pushes e pull requests. Veja [como consolidar main, abrir o PR e acompanhar a CI](docs/ci.md). Relatórios ficam disponíveis como artifacts, inclusive em falhas de teste. A presença do arquivo local ainda não comprova uma execução no GitHub.
