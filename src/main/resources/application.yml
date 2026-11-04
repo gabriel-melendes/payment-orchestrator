@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: payment-orchestrator
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payment_orchestrator}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: payment
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
