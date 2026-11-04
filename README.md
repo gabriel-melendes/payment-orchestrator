@@ -87,13 +87,13 @@ curl.exe -i http://localhost:8080/api/status
 
 Resposta esperada: HTTP 200 e `{"status":"UP"}`. O status também foi verificado em uma instância de teste separada na segunda etapa.
 
-Para rodar somente os testes unitários (não precisa de Docker nem credenciais):
+Para rodar os testes de entidade, serviços e MockMvc (sem Docker ou credenciais):
 
 ```powershell
 mvn test
 ```
 
-`mvn clean verify` compila, executa os testes e gera `target/payment-orchestrator-0.0.1-SNAPSHOT.jar`. Os testes cobrem entidade, serviços e contrato HTTP com MockMvc. Eles não iniciam banco ou servidor de rede. A verificação adicional com PostgreSQL é descrita no guia do cadastro.
+`mvn clean verify` compila, executa os 38 testes existentes e também a integração com PostgreSQL real via Testcontainers, além de gerar o JAR. Requer Docker Desktop iniciado. Não precisa carregar credenciais ou subir o Compose para os testes: eles usam banco e porta HTTP temporários. Veja [o guia de integração](docs/integration-tests.md).
 
 Para executar o JAR, na sessão com as variáveis carregadas e com o banco disponível:
 
@@ -126,11 +126,11 @@ git diff --cached
 git commit -m "chore: bootstrap Payment Orchestrator"
 ```
 
-Revise o diff antes do commit e confirme que `.env` não está incluído. Em equipe, a branch seria enviada para revisão por pull request, com `mvn clean verify` como verificação automatizada em CI. Pipeline CI/CD e publicação ficam para uma etapa solicitada separadamente. Nenhum commit, push ou repositório remoto foi criado por esta implementação.
+Revise o diff antes do commit e confirme que `.env` não está incluído. Em equipe, a branch seria enviada para revisão por pull request, com `mvn clean verify` como verificação automatizada em CI. Pipeline CI/CD e publicação ficam para uma etapa solicitada separadamente. Os passos acima descrevem a inicialização original; em um clone existente, use a branch da sua entrega e revise git status antes de criar o commit.
 
 ## Validação
 
-A segunda etapa inclui testes JUnit/Mockito/MockMvc e uma verificação separada com PostgreSQL 17 real. Veja [os resultados e limites](docs/payment-intents.md#validacao).
+O projeto agora possui testes automatizados de integração com PostgreSQL 17 real. Veja [como executar e interpretar os testes](docs/integration-tests.md). O histórico das verificações anteriores permanece nos guias de cada etapa.
 
 
 A consulta GET por ID está documentada em [docs/payment-intent-query.md](docs/payment-intent-query.md), com decisões, arquivos e exemplos 200/404/400.
