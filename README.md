@@ -1,6 +1,6 @@
 ﻿# Payment Orchestrator
 
-Projeto de estudos para entrevistas Java em instituições financeiras. Esta etapa entrega apenas a estrutura inicial e um endpoint HTTP de status.
+Projeto de estudos para entrevistas Java em instituições financeiras. O projeto oferece status HTTP e cadastro persistente de intenções de pagamento. Veja o [guia do cadastro](docs/payment-intents.md), com contrato, arquivos e decisões da segunda etapa.
 
 ## Tecnologias e decisões
 
@@ -8,11 +8,11 @@ Java 21, Spring Boot 3.5.16, Maven, PostgreSQL 17, Docker Compose, JUnit 5 e Moc
 
 Fluxo atual: requisição HTTP → `StatusController` → `StatusService` → `StatusResponse` → JSON. O controller cuida do protocolo HTTP; o service representa o comportamento da aplicação. O DTO é um `record` Java imutável que define o contrato de resposta.
 
-A camada `repository` está reservada para interfaces Spring Data JPA quando existir uma entidade de negócio. Não há entidade nem repositório artificial nesta etapa: o status não precisa consultar o banco. O endpoint confirma que a aplicação responde, mas não verifica a saúde contínua do PostgreSQL. A inicialização da aplicação precisa de banco acessível para Flyway e JPA.
+O cadastro segue Controller → Service → Repository → PostgreSQL, com DTOs separados da entidade. O status continua sem consultar o banco. A inicialização depende de PostgreSQL para Flyway e JPA.
 
-Flyway é responsável pelo DDL: `V1__create_payment_schema.sql` cria o schema `payment`. Seu histórico fica em `public.flyway_schema_history`. Futuras entidades usarão `payment`, configurado no Hibernate. `ddl-auto: validate` verifica os mapeamentos sem criar ou modificar tabelas. Nunca altere uma migração já aplicada; crie V2, V3 etc. `open-in-view: false` impede consultas JPA durante a serialização HTTP e incentiva limites de transação na camada de serviço quando necessários.
+Flyway é responsável pelo DDL: `V1__create_payment_schema.sql` cria o schema `payment`. Seu histórico fica em `public.flyway_schema_history`. V2 cria a tabela payment.payment_intents, mapeada pela entidade PaymentIntent. `ddl-auto: validate` verifica os mapeamentos sem criar ou modificar tabelas. Nunca altere uma migração já aplicada; crie V2, V3 etc. `open-in-view: false` impede consultas JPA durante a serialização HTTP e incentiva limites de transação na camada de serviço quando necessários.
 
-Validation está disponível para futuros contratos de entrada. Mockito também está disponível, mas não há colaborador a simular no serviço atual. Não foram adicionados Kafka, Redis, Kubernetes ou funcionalidades de pagamento.
+O cadastro usa Bean Validation e Mockito nos testes de serviço. Ele registra intenções sem executar pagamentos. Consulte o guia da segunda etapa para regras e limites.
 
 ## Arquivos e responsabilidades
 
@@ -26,7 +26,7 @@ Validation está disponível para futuros contratos de entrada. Mockito também 
 | `src/main/java/com/example/paymentorchestrator/controller/StatusController.java` | GET `/api/status`, com injeção do serviço pelo construtor. |
 | `src/main/java/com/example/paymentorchestrator/service/StatusService.java` | Produz o status `UP`. |
 | `src/main/java/com/example/paymentorchestrator/dto/StatusResponse.java` | Contrato JSON da resposta. |
-| `src/main/java/com/example/paymentorchestrator/repository/package-info.java` | Documenta a camada de persistência reservada. |
+| `src/main/java/com/example/paymentorchestrator/repository/package-info.java` | Documenta a camada de persistência. |
 | `src/main/resources/application.yml` | Conexão por variáveis, JPA e Flyway. |
 | `src/main/resources/db/migration/V1__create_payment_schema.sql` | Primeira versão da estrutura do banco. |
 | `src/test/java/com/example/paymentorchestrator/service/StatusServiceTest.java` | Teste unitário do contrato do serviço sem Spring ou banco. |
@@ -41,7 +41,7 @@ Validation está disponível para futuros contratos de entrada. Mockito também 
 - `@Service`: registra a classe como componente de serviço gerenciado pelo Spring.
 - `@Test`: anotação JUnit Jupiter que identifica um teste; não é uma anotação Spring.
 
-O construtor único do controller permite injeção automática sem `@Autowired`. Isso explicita a dependência e facilita testes. Não há `@Repository`, `@Entity`, `@Transactional` ou `@Valid` ainda, pois não existe persistência de negócio nem entrada a validar nesta etapa.
+O construtor único do controller permite injeção automática sem `@Autowired`. Isso explicita a dependência e facilita testes. As anotações de persistência, transação e validação do cadastro são explicadas em [docs/payment-intents.md](docs/payment-intents.md).
 
 ## Executar no Windows (PowerShell)
 
@@ -85,7 +85,7 @@ Invoke-RestMethod -Uri http://localhost:8080/api/status
 curl.exe -i http://localhost:8080/api/status
 ```
 
-Resposta esperada: HTTP 200 e `{"status":"UP"}`. Esse é o resultado esperado, não uma execução comprovada neste ambiente.
+Resposta esperada: HTTP 200 e `{"status":"UP"}`. O status também foi verificado em uma instância de teste separada na segunda etapa.
 
 Para rodar somente os testes unitários (não precisa de Docker nem credenciais):
 
@@ -93,7 +93,7 @@ Para rodar somente os testes unitários (não precisa de Docker nem credenciais)
 mvn test
 ```
 
-`mvn clean verify` compila, executa os testes e gera `target/payment-orchestrator-0.0.1-SNAPSHOT.jar`. Os testes atuais não sobem o contexto Spring e não validam integração com PostgreSQL, Flyway ou HTTP. O teste instancia o serviço, executa `getStatus()` e verifica o valor retornado com `assertEquals`.
+`mvn clean verify` compila, executa os testes e gera `target/payment-orchestrator-0.0.1-SNAPSHOT.jar`. Os testes cobrem entidade, serviços e contrato HTTP com MockMvc. Eles não iniciam banco ou servidor de rede. A verificação adicional com PostgreSQL é descrita no guia do cadastro.
 
 Para executar o JAR, na sessão com as variáveis carregadas e com o banco disponível:
 
@@ -128,9 +128,7 @@ git commit -m "chore: bootstrap Payment Orchestrator"
 
 Revise o diff antes do commit e confirme que `.env` não está incluído. Em equipe, a branch seria enviada para revisão por pull request, com `mvn clean verify` como verificação automatizada em CI. Pipeline CI/CD e publicação ficam para uma etapa solicitada separadamente. Nenhum commit, push ou repositório remoto foi criado por esta implementação.
 
-## Validação realizada no ambiente de criação
+## Validação
 
-Java, Maven, Docker e Git não foram encontrados no PATH nem nos diretórios comuns verificados. Portanto, build, testes JUnit, inicialização do PostgreSQL, migração e requisição HTTP não puderam ser executados aqui. A estrutura foi revisada estaticamente; a validação de execução permanece pendente até haver essas ferramentas. Os comandos acima permitem reproduzi-la no Windows.
-
-Referências: [requisitos do Spring Boot 3.5](https://docs.spring.io/spring-boot/3.5/system-requirements.html) e [inicialização de banco com Flyway](https://docs.spring.io/spring-boot/how-to/data-initialization.html).
+A segunda etapa inclui testes JUnit/Mockito/MockMvc e uma verificação separada com PostgreSQL 17 real. Veja [os resultados e limites](docs/payment-intents.md#validacao).
 

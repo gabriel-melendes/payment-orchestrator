@@ -1,5 +1,4 @@
 /**
- * Camada de acesso a dados. Os repositorios Spring Data JPA serao adicionados
- * quando a primeira entidade de negocio for implementada.
+ * Camada de acesso a dados com repositorios Spring Data JPA.
  */
 package com.example.paymentorchestrator.repository;
