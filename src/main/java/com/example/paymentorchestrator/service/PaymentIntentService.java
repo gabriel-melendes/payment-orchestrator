@@ -5,6 +5,8 @@ import com.example.paymentorchestrator.dto.PaymentIntentResponse;
 import com.example.paymentorchestrator.entity.PaymentIntent;
 import com.example.paymentorchestrator.repository.PaymentIntentRepository;
 import org.springframework.stereotype.Service;
+import java.util.UUID;
+import com.example.paymentorchestrator.exception.PaymentIntentNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -14,6 +16,13 @@ public class PaymentIntentService {
 
     public PaymentIntentService(PaymentIntentRepository repository) {
         this.repository = repository;
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentIntentResponse findById(UUID id) {
+        var intent = repository.findById(id)
+                .orElseThrow(() -> new PaymentIntentNotFoundException(id));
+        return PaymentIntentResponse.from(intent);
     }
 
     @Transactional

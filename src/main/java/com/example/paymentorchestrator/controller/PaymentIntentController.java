@@ -4,6 +4,9 @@ import com.example.paymentorchestrator.dto.CreatePaymentIntentRequest;
 import com.example.paymentorchestrator.dto.PaymentIntentResponse;
 import com.example.paymentorchestrator.service.PaymentIntentService;
 import jakarta.validation.Valid;
+import java.util.UUID;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,6 +22,11 @@ public class PaymentIntentController {
 
     public PaymentIntentController(PaymentIntentService service) {
         this.service = service;
+    }
+
+    @GetMapping("/{id}")
+    public PaymentIntentResponse findById(@PathVariable UUID id) {
+        return service.findById(id);
     }
 
     @PostMapping

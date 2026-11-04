@@ -1,4 +1,4 @@
-﻿# Cadastro de uma intenção de pagamento
+# Cadastro de uma intenção de pagamento
 
 Uma intenção registra um pedido de pagamento. Nesta etapa, nenhum dinheiro é movimentado.
 
@@ -60,7 +60,7 @@ O status é um enum salvo como texto, evitando dependência da ordem dos valores
 
 A migração V1 foi preservada; V2 adiciona a tabela. Flyway aplica as migrações antes da validação Hibernate. Reinicie a aplicação antiga para carregar o endpoint e aplicar V2; não apague o volume.
 
-Não há consulta por ID, autenticação, processamento ou idempotência nesta etapa. Cada POST válido cria uma nova intenção, inclusive com conteúdo repetido. Retentativas ainda não são deduplicadas.
+A consulta por ID foi adicionada na etapa seguinte; veja [o guia da consulta](payment-intent-query.md). Ainda não há autenticação, processamento ou idempotência. Cada POST válido cria uma nova intenção, inclusive com conteúdo repetido. Retentativas ainda não são deduplicadas.
 
 ## Arquivos e responsabilidades
 

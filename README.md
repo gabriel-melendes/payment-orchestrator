@@ -1,6 +1,6 @@
-﻿# Payment Orchestrator
+# Payment Orchestrator
 
-Projeto de estudos para entrevistas Java em instituições financeiras. O projeto oferece status HTTP e cadastro persistente de intenções de pagamento. Veja o [guia do cadastro](docs/payment-intents.md), com contrato, arquivos e decisões da segunda etapa.
+Projeto de estudos para entrevistas Java em instituições financeiras. O projeto oferece status HTTP, cadastro e consulta de intenções de pagamento por ID. Veja o [guia do cadastro](docs/payment-intents.md), com contrato, arquivos e decisões da segunda etapa.
 
 ## Tecnologias e decisões
 
@@ -132,3 +132,5 @@ Revise o diff antes do commit e confirme que `.env` não está incluído. Em equ
 
 A segunda etapa inclui testes JUnit/Mockito/MockMvc e uma verificação separada com PostgreSQL 17 real. Veja [os resultados e limites](docs/payment-intents.md#validacao).
 
+
+A consulta GET por ID está documentada em [docs/payment-intent-query.md](docs/payment-intent-query.md), com decisões, arquivos e exemplos 200/404/400.
