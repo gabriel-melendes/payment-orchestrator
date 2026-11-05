@@ -4,7 +4,7 @@ Uma intenção registra um pedido de pagamento. Nesta etapa, nenhum dinheiro é 
 
 ## Contrato HTTP
 
-`POST /api/payment-intents`, com `Content-Type: application/json`:
+`POST /api/payment-intents`, com `Content-Type: application/json` e cabeçalho obrigatório `Idempotency-Key`. Veja [idempotência](idempotency.md) para o contrato atual:
 
 ```json
 {"amount":125.50,"currency":"BRL","description":"Pedido 123"}
@@ -29,7 +29,7 @@ Retorno **201 Created**:
 }
 ```
 
-ID, status e data são controlados pelo servidor. UUID é gerado pelo provedor JPA; a data vem do Java como instante UTC. Não envie esses campos na entrada. Campos JSON desconhecidos são ignorados pelo padrão do Spring Boot, sem modificar os campos controlados pelo servidor.
+ID, status e data são controlados pelo servidor. UUID é gerado explicitamente pelo serviço no INSERT idempotente; a data vem do Java como instante UTC. Não envie esses campos na entrada. Campos JSON desconhecidos são ignorados pelo padrão do Spring Boot, sem modificar os campos controlados pelo servidor.
 
 Sem descrição, a resposta contém `description: null`. O JSON pode exibir `125.5` ou `125.50`: ambos representam o mesmo valor. No banco são duas casas decimais.
 
@@ -50,7 +50,7 @@ JSON malformado, corpo ausente e tipos incompatíveis também retornam 400, sem 
 
 ## Decisões de arquitetura
 
-Fluxo: **Controller → Service → Repository → PostgreSQL**. O controller recebe JSON e ativa validação. O serviço coordena a criação dentro de uma transação. O repository oferece `save` por Spring Data JPA. DTOs separam o contrato HTTP da entidade persistida, evitando retornar diretamente o mapeamento de banco.
+Fluxo: **Controller → Service → Repository → PostgreSQL**. O controller recebe JSON e ativa validação. O serviço coordena a criação dentro de uma transação. O repository executa um INSERT condicional por chave e consultas por Spring Data JPA. DTOs separam o contrato HTTP da entidade persistida, evitando retornar diretamente o mapeamento de banco.
 
 Usamos `BigDecimal`, evitando a imprecisão binária de `double`. A entidade normaliza para duas casas com `RoundingMode.UNNECESSARY`: uma fração de centavo nunca é arredondada silenciosamente. A validação do DTO oferece mensagens amigáveis; o construtor também protege invariantes em chamadas internas.
 
@@ -60,7 +60,7 @@ O status é um enum salvo como texto, evitando dependência da ordem dos valores
 
 A migração V1 foi preservada; V2 adiciona a tabela. Flyway aplica as migrações antes da validação Hibernate. Reinicie a aplicação antiga para carregar o endpoint e aplicar V2; não apague o volume.
 
-A consulta por ID foi adicionada na etapa seguinte; veja [o guia da consulta](payment-intent-query.md). Ainda não há autenticação, processamento ou idempotência. Cada POST válido cria uma nova intenção, inclusive com conteúdo repetido. Retentativas ainda não são deduplicadas.
+A consulta por ID foi adicionada na etapa seguinte; veja [o guia da consulta](payment-intent-query.md). Há [idempotência no cadastro](idempotency.md): a repetição da chave com os mesmos dados retorna a intenção existente. Ainda não há autenticação nem processamento financeiro.
 
 ## Arquivos e responsabilidades
 
@@ -96,10 +96,10 @@ Nenhuma dependência nova foi necessária.
 - `@PostMapping`: associa o método ao POST do caminho definido no controller.
 - `@RequestBody`: converte JSON em DTO; `@Valid` aplica Bean Validation antes de chamar o serviço.
 - `@NotNull`, `@NotBlank`, `@DecimalMin`, `@Digits`, `@Pattern`, `@Size`: validam presença, conteúdo e limites; pertencem a Jakarta Validation.
-- `@ResponseStatus(CREATED)`: retorna 201 quando a criação termina com sucesso.
+- `ResponseEntity`: escolhe 201 na criação ou 200 na repetição idempotente, substituindo o retorno fixo por @ResponseStatus.
 - `@Transactional`: delimita a transação no serviço. Falhas de persistência propagadas provocam rollback; o commit ocorre antes do retorno ao controller.
 - `@Entity`, `@Table`: registram a entidade JPA e seu schema/tabela.
-- `@Id`, `@GeneratedValue`: identificador gerado como UUID pelo provedor JPA.
+- `@Id` identifica a chave primária. O mapeamento mantém @GeneratedValue para persistência JPA convencional; o INSERT nativo do cadastro idempotente recebe um UUID criado pelo serviço.
 - `@Column`: configura o mapeamento das colunas, alinhado ao Flyway.
 - `@Enumerated(STRING)`: salva o nome textual do enum.
 - `@RestControllerAdvice`, `@ExceptionHandler`: centralizam respostas para exceções específicas.
@@ -134,7 +134,7 @@ $body = @{
 
 $response = Invoke-WebRequest -UseBasicParsing `
     -Uri 'http://localhost:8080/api/payment-intents' `
-    -Method Post -ContentType 'application/json' -Body $body
+    -Method Post -Headers @{ 'Idempotency-Key' = 'pedido-exemplo-123' } -ContentType 'application/json' -Body $body
 $response.StatusCode
 $response.Content
 ```

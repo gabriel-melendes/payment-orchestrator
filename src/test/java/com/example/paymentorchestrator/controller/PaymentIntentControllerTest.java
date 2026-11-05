@@ -1,6 +1,9 @@
 package com.example.paymentorchestrator.controller;
 
 import com.example.paymentorchestrator.dto.CreatePaymentIntentRequest;
+import com.example.paymentorchestrator.domain.IdempotencyKey;
+import com.example.paymentorchestrator.service.PaymentIntentCreationResult;
+import com.example.paymentorchestrator.exception.IdempotencyConflictException;
 import com.example.paymentorchestrator.dto.PaymentIntentResponse;
 import com.example.paymentorchestrator.entity.PaymentIntentStatus;
 import com.example.paymentorchestrator.exception.ApiExceptionHandler;
@@ -38,11 +41,11 @@ class PaymentIntentControllerTest {
     @Test
     void shouldReturn201WithSavedIntent() throws Exception {
         UUID id = UUID.randomUUID();
-        when(service.create(any())).thenReturn(new PaymentIntentResponse(id,
+        when(service.create(any(), any())).thenReturn(new PaymentIntentCreationResult(new PaymentIntentResponse(id,
                 new BigDecimal("125.50"), "BRL", "Pedido 123", PaymentIntentStatus.CREATED,
-                Instant.parse("2026-01-01T10:00:00Z")));
+                Instant.parse("2026-01-01T10:00:00Z")), true));
 
-        mvc.perform(post("/api/payment-intents").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", "test-key").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\":125.50,\"currency\":\"BRL\",\"description\":\"Pedido 123\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(id.toString()))
@@ -51,7 +54,7 @@ class PaymentIntentControllerTest {
                 .andExpect(jsonPath("$.description").value("Pedido 123"))
                 .andExpect(jsonPath("$.status").value("CREATED"))
                 .andExpect(jsonPath("$.createdAt").exists());
-        verify(service).create(new CreatePaymentIntentRequest(new BigDecimal("125.50"), "BRL", "Pedido 123"));
+        verify(service).create(new IdempotencyKey("test-key"), new CreatePaymentIntentRequest(new BigDecimal("125.50"), "BRL", "Pedido 123"));
     }
 
     @ParameterizedTest
@@ -68,7 +71,7 @@ class PaymentIntentControllerTest {
             "{\"amount\":1,\"currency\":\"brl\"}"
     })
     void shouldRejectInvalidFieldsWithoutCallingService(String body) throws Exception {
-        mvc.perform(post("/api/payment-intents").contentType(MediaType.APPLICATION_JSON).content(body))
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", "test-key").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.errors").isArray());
@@ -78,7 +81,7 @@ class PaymentIntentControllerTest {
     @Test
     void shouldRejectLongDescription() throws Exception {
         String body = "{\"amount\":1,\"currency\":\"BRL\",\"description\":\"" + "a".repeat(256) + "\"}";
-        mvc.perform(post("/api/payment-intents").contentType(MediaType.APPLICATION_JSON).content(body))
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", "test-key").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("description"));
         verifyNoInteractions(service);
@@ -87,7 +90,7 @@ class PaymentIntentControllerTest {
     @ParameterizedTest
     @ValueSource(strings = {"{", "", "{\"amount\":\"abc\",\"currency\":\"BRL\"}"})
     void shouldRejectUnreadableBody(String body) throws Exception {
-        mvc.perform(post("/api/payment-intents").contentType(MediaType.APPLICATION_JSON).content(body))
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", "test-key").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Corpo da requisicao invalido"));
         verifyNoInteractions(service);
@@ -135,6 +138,44 @@ class PaymentIntentControllerTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.title").value("Parametro invalido"))
                 .andExpect(jsonPath("$.detail").value("O parametro 'id' possui formato invalido."));
+        verifyNoInteractions(service);
+    }
+    @Test
+    void shouldReturn200ForReplay() throws Exception {
+        var response = new PaymentIntentResponse(UUID.randomUUID(), BigDecimal.ONE, "BRL", null,
+                PaymentIntentStatus.CREATED, Instant.parse("2026-01-01T10:00:00Z"));
+        when(service.create(any(), any())).thenReturn(new PaymentIntentCreationResult(response, false));
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", "test-key")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":1,\"currency\":\"BRL\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(response.id().toString()));
+    }
+
+    @Test
+    void shouldReturn409ForConflictingKey() throws Exception {
+        when(service.create(any(), any())).thenThrow(new IdempotencyConflictException());
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", "test-key")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":1,\"currency\":\"BRL\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Conflito de idempotencia"));
+    }
+
+    @Test
+    void shouldReturn400ForMissingKey() throws Exception {
+        mvc.perform(post("/api/payment-intents").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\":1,\"currency\":\"BRL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Chave de idempotencia invalida"));
+        verifyNoInteractions(service);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "invalid key", "-prefix", "abc,def"})
+    void shouldRejectInvalidKeyBeforeService(String key) throws Exception {
+        mvc.perform(post("/api/payment-intents").header("Idempotency-Key", key)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":1,\"currency\":\"BRL\"}"))
+                .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
 }

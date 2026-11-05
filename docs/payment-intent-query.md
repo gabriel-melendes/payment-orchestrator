@@ -44,7 +44,7 @@ Em outro terminal, crie uma intenção e use o ID retornado:
 
 ```powershell
 $body = @{ amount = 25.50; currency = 'BRL'; description = 'Teste de consulta' } | ConvertTo-Json
-$intent = Invoke-RestMethod -Uri 'http://localhost:8080/api/payment-intents' -Method Post -ContentType 'application/json' -Body $body
+$intent = Invoke-RestMethod -Uri 'http://localhost:8080/api/payment-intents' -Method Post -Headers @{ 'Idempotency-Key' = [guid]::NewGuid().ToString() } -ContentType 'application/json' -Body $body
 curl.exe -i "http://localhost:8080/api/payment-intents/$($intent.id)"
 ```
 
