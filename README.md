@@ -93,7 +93,7 @@ Para rodar os testes de entidade, serviços e MockMvc (sem Docker ou credenciais
 mvn test
 ```
 
-`mvn clean verify` compila, executa os 38 testes existentes e também a integração com PostgreSQL real via Testcontainers, além de gerar o JAR. Requer Docker Desktop iniciado. Não precisa carregar credenciais ou subir o Compose para os testes: eles usam banco e porta HTTP temporários. Veja [o guia de integração](docs/integration-tests.md).
+`mvn clean verify` compila, executa os testes unitários e HTTP em memória e também a integração com PostgreSQL real via Testcontainers, além de gerar o JAR. Requer Docker Desktop iniciado. Não precisa carregar credenciais ou subir o Compose para os testes: eles usam banco e porta HTTP temporários. Veja [o guia de integração](docs/integration-tests.md).
 
 Para executar o JAR, na sessão com as variáveis carregadas e com o banco disponível:
 
@@ -137,4 +137,8 @@ A consulta GET por ID está documentada em [docs/payment-intent-query.md](docs/p
 
 ## Integração contínua
 
-O workflow Java CI executa o build Java 21 e os 50 testes em pushes e pull requests. Veja [como consolidar main, abrir o PR e acompanhar a CI](docs/ci.md). Relatórios ficam disponíveis como artifacts, inclusive em falhas de teste. A presença do arquivo local ainda não comprova uma execução no GitHub.
+O workflow Java CI executa o build Java 21 e a suíte completa em pushes e pull requests. Veja [como consolidar main, abrir o PR e acompanhar a CI](docs/ci.md). Relatórios ficam disponíveis como artifacts, inclusive em falhas de teste. A presença do arquivo local ainda não comprova uma execução no GitHub.
+
+## Idempotência
+
+O POST exige Idempotency-Key: chave nova retorna 201, repetição equivalente retorna 200, reutilização com outros dados válidos retorna 409 e chave inválida retorna 400. A V3 preserva registros antigos e adiciona proteção UNIQUE no banco. Veja [contrato, concorrência e exemplos](docs/idempotency.md).

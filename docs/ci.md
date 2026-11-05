@@ -1,4 +1,4 @@
-﻿# Integração contínua e pull requests
+# Integração contínua e pull requests
 
 A CI executa o build e os testes automaticamente no GitHub. O arquivo `.github/workflows/ci.yml` é a configuração versionada desse processo. Não publica nem faz deploy da aplicação.
 
@@ -12,7 +12,7 @@ A CI executa o build e os testes automaticamente no GitHub. O arquivo `.github/w
 6. Executa `mvn --batch-mode --no-transfer-progress clean verify`.
 7. Disponibiliza os relatórios Surefire e Failsafe como artifact por sete dias, inclusive quando os testes falham, desde que a execução não tenha sido cancelada.
 
-O comando executa os 38 casos atuais e os 12 testes de integração, totalizando 50. Não usamos flags para ignorar testes. Testcontainers inicia seu próprio PostgreSQL; não precisamos de um serviço Postgres no YAML, Compose, `.env` ou secrets de banco no GitHub.
+O comando executa todos os testes atuais, incluindo os de integração e idempotência. Não usamos flags para ignorar testes. Testcontainers inicia seu próprio PostgreSQL; não precisamos de um serviço Postgres no YAML, Compose, `.env` ou secrets de banco no GitHub.
 
 Cache acelera downloads; não substitui a execução do build ou dos testes. `--batch-mode` evita interação, e `--no-transfer-progress` reduz os logs dos downloads. Surefire executa os testes rápidos; Failsafe executa e verifica os testes de integração.
 
@@ -75,7 +75,7 @@ O template aparece automaticamente em novos PRs quando estiver presente na branc
 
 Depois do push, abra Actions → Java CI → execução mais recente. Também confira os checks no PR e confirme que correspondem ao commit atual.
 
-O job `Build and test (Java 21)` deve ficar verde. Nos logs, confira os resumos: 38 testes pelo Surefire, 12 pelo Failsafe e BUILD SUCCESS. A contagem crescerá quando novos testes forem adicionados.
+O job `Build and test (Java 21)` deve ficar verde. Nos logs, confira os resumos do Surefire e Failsafe, sem falhas, e BUILD SUCCESS. A contagem crescerá quando novos testes forem adicionados.
 
 Se falhar, abra a etapa vermelha. Os relatórios estarão em Artifacts no resumo da execução, quando tiverem sido gerados. Falhas anteriores à geração dos relatórios podem deixar apenas os logs. Corrija localmente, faça outro commit e push na mesma branch: o PR é atualizado e a CI executa novamente.
 

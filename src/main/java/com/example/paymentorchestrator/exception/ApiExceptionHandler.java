@@ -11,6 +11,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(InvalidIdempotencyKeyException.class)
+    public ProblemDetail handleInvalidKey(InvalidIdempotencyKeyException exception) {
+        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+        problem.setTitle("Chave de idempotencia invalida");
+        return problem;
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ProblemDetail handleIdempotencyConflict(IdempotencyConflictException exception) {
+        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+        problem.setTitle("Conflito de idempotencia");
+        return problem;
+    }
+
     @ExceptionHandler(PaymentIntentNotFoundException.class)
     public ProblemDetail handleNotFound(PaymentIntentNotFoundException exception) {
         var problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());

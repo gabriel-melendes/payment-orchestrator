@@ -21,6 +21,9 @@ public class PaymentIntent {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "idempotency_key", length = 128, unique = true, updatable = false)
+    private String idempotencyKey;
+
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
